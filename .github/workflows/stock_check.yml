@@ -1,0 +1,49 @@
+name: Stock Checker
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-stock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Restore state from cache
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: last_notification.txt
+          key: notification-state-${{ github.run_id }}
+          restore-keys: |
+            notification-state-
+
+      - name: Run Script
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TARGET_PLAN: ${{ secrets.TARGET_PLAN }}
+          TARGET_REGION: ${{ secrets.TARGET_REGION }}
+          NOTIFICATION_MESSAGE: ${{ secrets.NOTIFICATION_MESSAGE }}
+          PREORDER_NOTIFICATION_MESSAGE: ${{ secrets.PREORDER_NOTIFICATION_MESSAGE }}
+          BUTTON_TEXT: ${{ secrets.BUTTON_TEXT }}
+          BUTTON_URL: ${{ secrets.BUTTON_URL }}
+        run: python check_stock.py
+
+      - name: Save state to cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: last_notification.txt
+          key: notification-state-${{ github.run_id }}
