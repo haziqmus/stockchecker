@@ -41,9 +41,18 @@ jobs:
           BUTTON_URL: ${{ secrets.BUTTON_URL }}
         run: python check_stock.py
 
+      - name: Check if state file exists
+        id: check_file
+        run: |
+          if [ -f last_notification.txt ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Save state to cache
         uses: actions/cache/save@v4
-        if: always()
+        if: steps.check_file.outputs.exists == 'true'
         with:
           path: last_notification.txt
           key: notification-state-${{ github.run_id }}
