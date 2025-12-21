@@ -26,7 +26,6 @@ def send_telegram_message(message, button_text=None, button_url=None):
         "text": message
     }
     
-    # Add inline button if provided
     if button_text and button_url:
         payload["reply_markup"] = {
             "inline_keyboard": [[
@@ -47,7 +46,6 @@ def send_telegram_message(message, button_text=None, button_url=None):
         print(f"Error sending Telegram message: {e}")
 
 def can_send_notification():
-    """Check if 12 hours have passed since last notification"""
     if not os.path.exists(STATE_FILE):
         return True
     
@@ -70,7 +68,6 @@ def can_send_notification():
         return True
 
 def update_notification_time():
-    """Record the current time as last notification time"""
     try:
         with open(STATE_FILE, 'w') as f:
             f.write(datetime.now().isoformat())
@@ -78,7 +75,6 @@ def update_notification_time():
         print(f"Error writing state file: {e}")
 
 def clear_notification_state():
-    """Remove state file when stock is out"""
     if os.path.exists(STATE_FILE):
         try:
             os.remove(STATE_FILE)
@@ -92,7 +88,7 @@ def check_stock():
         return
 
     url = f"https://ca.api.ovh.com/v1/vps/order/rule/datacenter?ovhSubsidiary=WE&planCode={target_plan}"
-    print(f"Checking stock for {target_plan} in {target_region} only...")
+    print(f"Checking Linux stock for {target_plan} in {target_region} only...")
     
     try:
         response = requests.get(url)
@@ -107,19 +103,21 @@ def check_stock():
         if 'datacenters' in data:
             for dc in data['datacenters']:
                 if dc['datacenter'] == target_region:
-                    if dc['status'] == 'out-of-stock-preorder-allowed':
+                    linux_status = dc.get('linuxStatus', 'out-of-stock')
+                    
+                    if linux_status == 'out-of-stock-preorder-allowed':
                         found_preorder = True
-                        print(f"Found {target_region} with status: {dc['status']}")
-                    elif dc['status'] != 'out-of-stock':
+                        print(f"Found {target_region} with Linux Status: {linux_status}")
+                    elif linux_status != 'out-of-stock':
                         found_stock = True
-                        print(f"Found {target_region} with status: {dc['status']}")
+                        print(f"Found {target_region} with Linux Status: {linux_status}")
 
         if found_preorder and not found_stock:
             if can_send_notification():
                 if preorder_message_template:
                     msg = preorder_message_template.replace("{plan}", target_plan).replace("{region}", target_region)
                 else:
-                    msg = f"PREORDER AVAILABLE!\n\nPlan: {target_plan}\nLocation: {target_region}\nStatus: out-of-stock-preorder-allowed"
+                    msg = f"PREORDER AVAILABLE (Linux)!\n\nPlan: {target_plan}\nLocation: {target_region}\nStatus: out-of-stock-preorder-allowed"
                 
                 print(msg)
                 btn_text = button_text if button_text else "Order Now 🛒"
@@ -132,7 +130,7 @@ def check_stock():
             if custom_message_template:
                 msg = custom_message_template.replace("{plan}", target_plan).replace("{region}", target_region)
             else:
-                msg = f"STOCK FOUND!\n\nPlan: {target_plan}\nLocation: {target_region}"
+                msg = f"STOCK FOUND (Linux)!\n\nPlan: {target_plan}\nLocation: {target_region}"
             
             print(msg)
             
@@ -144,7 +142,7 @@ def check_stock():
             else:
                 print("Stock still available but in cooldown period - message not sent")
         else:
-            print(f"No stock available in {target_region}.")
+            print(f"No Linux stock available in {target_region}.")
             clear_notification_state()
 
     except Exception as e:
